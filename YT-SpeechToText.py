@@ -92,7 +92,7 @@ def transcribe_audio_openai_new(audio_parts, randomKey):
         transcriptions.append(transcription)
 
     transcribed_text = ' '.join(transcriptions)
-    txt_file = open(randomKey+'_output.txt', 'w', encoding="utf-8")
+    txt_file = open(randomKey+'_output.txt', 'a+', encoding="utf-8")
     txt_file.write(transcribed_text)
     return transcribed_text
 
