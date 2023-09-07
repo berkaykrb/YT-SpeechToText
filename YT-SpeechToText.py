@@ -4,6 +4,8 @@ import math
 import ffmpeg
 import openai
 import warnings
+import string
+import random
 from pydub import AudioSegment
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
@@ -29,8 +31,21 @@ CORS(app, support_credentials=True)
 
 # Start of Functions #
 
+# Generate random key (inactive)
+def key_generator(size=8, chars=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for _ in range(size))
+
+# Delete temp files
+def delete_files_with_prefix(directory, prefix):
+    file_list = os.listdir(directory)
+
+    for filename in file_list:
+        if filename.startswith(prefix):
+            file_path = os.path.join(directory, filename)
+            os.remove(file_path)
+
 # Downloading video (pytube)
-def download_video(url, output_path):
+def download_video(url, output_path, randomKey):
     youtube = YouTube(url)
     video = youtube.streams.get_highest_resolution()
     video.download(output_path, filename="video.mp4")
@@ -61,7 +76,7 @@ def split_audio_file(audio_path):
     return parts
 
 # Transcribe audio to text (OpenAI)
-def transcribe_audio_openai_new(audio_parts):
+def transcribe_audio_openai_new(audio_parts, randomKey):
     transcriptions = []
     for part in audio_parts:
         audio_file = open(part, "rb")
@@ -77,7 +92,7 @@ def transcribe_audio_openai_new(audio_parts):
         transcriptions.append(transcription)
 
     transcribed_text = ' '.join(transcriptions)
-    txt_file = open('output.txt', 'w', encoding="utf-8")
+    txt_file = open(randomKey+'_output.txt', 'w', encoding="utf-8")
     txt_file.write(transcribed_text)
     return transcribed_text
 
@@ -97,15 +112,15 @@ def generate_summary_openai(text):
     return summary
 
 # Main function
-def speechToText(link):
+def speechToText(link, randomKey):
 
-    download_video(link, video_output_path)
+    download_video(link, video_output_path, randomKey)
     
     print("1")
     
     if __name__ == '__main__':
-        video_path = os.path.join(script_directory, 'tempfiles', 'video.mp4')
-        audio_path = os.path.join(script_directory, 'tempfiles', 'video.wav')
+        video_path = os.path.join(script_directory, 'tempfiles', randomKey+'video.mp4')
+        audio_path = os.path.join(script_directory, 'tempfiles', randomKey+'video.wav')
         convert_video_to_audio(video_path, audio_path)
         
     print("2")
@@ -114,23 +129,27 @@ def speechToText(link):
     
     print("3")
 
-    transcribed_text = transcribe_audio_openai_new(audio_parts)
+    transcribed_text = transcribe_audio_openai_new(audio_parts, randomKey)
     
     print("4")
+
+    delete_files_with_prefix(video_output_path,randomKey)
 
     return transcribed_text
 
 @app.route('/')
 def homepage():
-    return 'YT-SpeechToText-v2'
+    return 'YT-SpeechToText-v2.1'
 
 @app.route('/speechToText', methods=['POST'])
 @cross_origin(supports_credentials=True)
 def process_data():
     gelenLink = request.form['LINK']
+    randomKey = request.form['RANDOM_KEY']
     print(gelenLink)
-    transcribedText = speechToText(gelenLink)
-    result = {'metin': transcribedText, 'link': gelenLink}
+    print(randomKey)
+    transcribedText = speechToText(gelenLink, randomKey)
+    result = {'metin': transcribedText, 'link': gelenLink, 'randomKey': randomKey}
     return jsonify(result)
 
 #@socketio.on('speechToText')
